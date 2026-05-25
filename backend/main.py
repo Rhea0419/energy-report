@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="能源行业月报系统", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="采研月报系统", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -234,7 +234,7 @@ FRONTEND_HTML = Path(__file__).parent.parent / "frontend" / "index.html"
 def serve_frontend():
     if FRONTEND_HTML.exists():
         return FileResponse(str(FRONTEND_HTML), media_type="text/html")
-    return {"message": "能源月报系统 API", "docs": "/docs"}
+    return {"message": "采研月报系统 API", "docs": "/docs"}
 
 
 if __name__ == "__main__":
