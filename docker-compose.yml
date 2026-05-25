@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  energy-report:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DAJIALA_KEY=${DAJIALA_KEY:-JZL7c202e98f5e83144}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OBSIDIAN_VAULT=/data
+    volumes:
+      - ${OBSIDIAN_VAULT:-./data}:/data
+    restart: unless-stopped
