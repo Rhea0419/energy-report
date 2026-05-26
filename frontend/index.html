@@ -119,9 +119,7 @@ tr:hover{background:#f5f7fa}
       <input type="date" id="price-end" onchange="loadPriceChart()" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
       <button onclick="loadPriceChart()">刷新</button>
     </div>
-    <div class="chart-row">
-      <div class="chart-box"><div class="chart-title">均价走势</div><div class="chart-inner" id="chart-price-trend" style="height:400px"></div></div>
-      <div class="chart-box"><div class="chart-title">日涨跌</div><div class="chart-inner" id="chart-price-change" style="height:400px"></div></div>
+    <div id="price-charts-container" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     </div>
   </div>
 
@@ -567,39 +565,46 @@ async function loadPriceChart() {
   const data = await fetch(url).then(r => r.json());
   const products = data.products || [];
   
-  // Price trend chart
-  const trendChart = echarts.init(document.getElementById('chart-price-trend'));
-  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399'];
-  trendChart.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: products.map(p => p.name), bottom: 0 },
-    grid: { left: 80, right: 24, top: 20, bottom: 50 },
-    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [], axisLabel: { rotate: 45 } },
-    yAxis: { type: 'value', splitNumber: 6 },
-    series: products.map((p, i) => ({
-      name: p.name, type: 'line', data: p.avgs,
-      smooth: true, symbol: 'circle', symbolSize: 6,
-      itemStyle: { color: colors[i % colors.length] },
-      label: { show: true, position: 'top', fontSize: 10,
-        formatter: function(v) { return v.value != null ? v.value.toLocaleString() : ''; } }
-    }))
-  });
+  // Format dates: remove year prefix (YYYY-MM-DD → MM-DD)
+  function shortDate(d) { return d ? d.slice(5) : d; }
   
-  // Change chart (line)
-  const changeChart = echarts.init(document.getElementById('chart-price-change'));
-  changeChart.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { data: products.map(p => p.name), bottom: 0 },
-    grid: { left: 80, right: 24, top: 20, bottom: 50 },
-    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [], axisLabel: { rotate: 45 } },
-    yAxis: { type: 'value', splitNumber: 6 },
-    series: products.map((p, i) => ({
-      name: p.name, type: 'line', data: p.changes,
-      smooth: true, symbol: 'circle', symbolSize: 6,
-      itemStyle: { color: colors[i % colors.length] },
-      label: { show: true, position: 'top', fontSize: 10,
-        formatter: function(v) { return v.value != null ? (v.value > 0 ? '+' : '') + v.value.toLocaleString() : ''; } }
-    }))
+  const container = document.getElementById('price-charts-container');
+  container.innerHTML = '';
+  
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399'];
+  
+  products.forEach((p, i) => {
+    const box = document.createElement('div');
+    box.className = 'chart-box';
+    box.innerHTML = '<div class="chart-title">' + p.name + '（' + (p.unit || '') + '）</div>' +
+      '<div class="chart-inner" id="chart-price-' + i + '" style="height:280px"></div>';
+    container.appendChild(box);
+    
+    // Delay init to let DOM render
+    setTimeout(() => {
+      const chart = echarts.init(document.getElementById('chart-price-' + i));
+      chart.setOption({
+        tooltip: { trigger: 'axis', formatter: function(params) {
+          let s = params[0].axisValue + '<br/>';
+          params.forEach(function(v) { s += v.marker + ' ' + v.seriesName + ': ' + v.value.toLocaleString() + '<br/>'; });
+          return s;
+        }},
+        grid: { left: 70, right: 20, top: 20, bottom: 30 },
+        xAxis: { type: 'category', data: p.dates.map(shortDate), axisLabel: { fontSize: 10, rotate: 30 } },
+        yAxis: { type: 'value', splitNumber: 5, axisLabel: { fontSize: 10 } },
+        series: [{
+          name: p.name, type: 'line', data: p.avgs,
+          smooth: true, symbol: 'circle', symbolSize: 6,
+          itemStyle: { color: colors[i % colors.length] },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: colors[i % colors.length] + '33' },
+            { offset: 1, color: colors[i % colors.length] + '05' }
+          ])},
+          label: { show: true, position: 'top', fontSize: 9,
+            formatter: function(v) { return v.value != null ? v.value.toLocaleString() : ''; } }
+        }]
+      });
+    }, 50);
   });
 }
 async function loadPastWeekly() {
