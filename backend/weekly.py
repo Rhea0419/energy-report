@@ -5,10 +5,10 @@ import io
 from pathlib import Path
 from docx import Document
 
-# Use Obsidian path locally, ./data/weekly on cloud
+# Use Obsidian path locally, ../data/weekly on cloud
 WEEKLY_DIR = Path(os.getenv(
     "WEEKLY_REPORTS_DIR",
-    "/Users/rhea/Obsidian data/work/周报" if not (os.getenv("HF_SPACE") or os.getenv("RENDER")) else "./data/weekly"
+    "/Users/rhea/Obsidian data/work/周报" if not (os.getenv("HF_SPACE") or os.getenv("RENDER")) else "../data/weekly"
 ))
 
 

@@ -16,7 +16,7 @@ except ImportError:
 # On Railway/cloud: use local data dir; on macOS: use Obsidian vault
 _default_vault = "/Users/rhea/Obsidian data/work"
 if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RENDER") or os.getenv("HF_SPACE"):
-    _default_vault = "./data"
+    _default_vault = "../data"
 OBSIDIAN_VAULT = Path(os.getenv("OBSIDIAN_VAULT", _default_vault))
 
 RAW_ARTICLE_DIR = OBSIDIAN_VAULT / "raw-article"

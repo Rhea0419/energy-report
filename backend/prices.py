@@ -3,9 +3,9 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
-# Local: use the actual path. Cloud: use ./data/prices.db
+# Local: use the actual path. Cloud: use ../data/ (relative to backend/)
 if os.getenv("HF_SPACE") or os.getenv("RENDER"):
-    DB_PATH = "./data/prices.db"
+    DB_PATH = "../data/prices.db"
 else:
     DB_PATH = "/Users/rhea/Documents/Kapathy/commodities/data/prices.db"
 
