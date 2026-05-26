@@ -99,7 +99,7 @@ tr:hover{background:#f5f7fa}
   <!-- Price Tracking -->
   <div id="page-price" class="page active">
     <div class="table-box" style="padding:0;overflow:hidden">
-      <iframe src="http://localhost:8504" style="width:100%;height:85vh;border:none"></iframe>
+      <iframe src="https://caiyan-thinktank.streamlit.app" style="width:100%;height:85vh;border:none"></iframe>
     </div>
   </div>
 
@@ -522,7 +522,27 @@ async function generateWeekly() {
 
 // ── Past Weekly ──
 async function loadPastWeekly() {
-  document.getElementById('past-weekly-list').innerHTML = '<div class="empty"><div class="icon">🗂️</div>往期周报将从 Obsidian 周报目录加载</div>';
+  const data = await fetch(API + '/weekly-reports').then(r => r.json());
+  const reports = data.reports || [];
+  if (reports.length === 0) {
+    document.getElementById('past-weekly-list').innerHTML = '<div class="empty"><div class="icon">🗂️</div>暂无往期周报</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>期数</th><th>文件名</th><th>操作</th></tr></thead><tbody>';
+  reports.forEach(r => {
+    html += '<tr><td>' + r.period + '</td><td>' + r.filename + '</td>' +
+      '<td><button class="btn btn-sm btn-outline" onclick="viewWeekly(\'' + r.period + '\',\'' + encodeURIComponent(r.filename) + '\')">查看</button></td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('past-weekly-list').innerHTML = html;
+}
+
+async function viewWeekly(period, filename) {
+  const url = API + '/weekly-reports/' + period + '?filename=' + filename;
+  const data = await fetch(url).then(r => r.json());
+  document.getElementById('past-weekly-list').innerHTML = 
+    '<div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" onclick="loadPastWeekly()">← 返回列表</button></div>' +
+    '<div class="report-preview" style="max-width:900px">' + (data.content || '暂无内容') + '</div>';
 }
 
 // ── Actions ──

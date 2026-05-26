@@ -9,6 +9,7 @@ from analyzer import get_analyzer
 from storage import list_articles, count_articles, get_recent_months, save_knowledge_base
 from reporter import generate_and_save, list_reports, get_report, get_available_months
 from scheduler import get_scheduler_status
+from weekly import list_weekly_reports, extract_weekly_report
 
 
 @asynccontextmanager
@@ -221,6 +222,28 @@ def get_past_report(filename: str):
 @app.get("/api/scheduler")
 def scheduler_status():
     return get_scheduler_status()
+
+# ── 周报 API ──────────────────────────────────────
+
+@app.get("/api/weekly-reports")
+def get_weekly_reports():
+    return {"reports": list_weekly_reports()}
+
+@app.get("/api/weekly-reports/{period}")
+def read_weekly_report(period: str, filename: str = ""):
+    reports = list_weekly_reports()
+    target = None
+    for r in reports:
+        if r["period"] == period:
+            if filename and r["filename"] != filename:
+                continue
+            target = r
+            break
+    if not target:
+        return {"error": "Report not found"}, 404
+    
+    content = extract_weekly_report(target["path"])
+    return {"period": period, "filename": target["filename"], "content": content}
 
 
 # ── 前端页面 ──────────────────────────────────────
