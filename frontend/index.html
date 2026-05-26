@@ -99,7 +99,7 @@ tr:hover{background:#f5f7fa}
   <!-- Price Tracking -->
   <div id="page-price" class="page active">
     <div class="cards" id="price-cards"></div>
-    <div class="toolbar" style="margin-bottom:16px">
+    <div class="toolbar" style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <select id="price-product" onchange="loadPriceChart()">
         <option value="">全部品种</option>
         <option value="1#银">1#银</option>
@@ -112,12 +112,16 @@ tr:hover{background:#f5f7fa}
         <option value="30">近30天</option>
         <option value="60">近60天</option>
         <option value="90">近90天</option>
+        <option value="180">近半年</option>
       </select>
+      <input type="date" id="price-start" onchange="loadPriceChart()" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
+      <span style="font-size:13px;color:var(--text-secondary)">至</span>
+      <input type="date" id="price-end" onchange="loadPriceChart()" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
       <button onclick="loadPriceChart()">刷新</button>
     </div>
     <div class="chart-row">
-      <div class="chart-box"><div class="chart-title">价格走势</div><div class="chart-inner" id="chart-price-trend" style="height:400px"></div></div>
-      <div class="chart-box"><div class="chart-title">涨跌幅</div><div class="chart-inner" id="chart-price-change" style="height:400px"></div></div>
+      <div class="chart-box"><div class="chart-title">均价走势</div><div class="chart-inner" id="chart-price-trend" style="height:400px"></div></div>
+      <div class="chart-box"><div class="chart-title">日涨跌</div><div class="chart-inner" id="chart-price-change" style="height:400px"></div></div>
     </div>
   </div>
 
@@ -579,16 +583,17 @@ async function loadPriceChart() {
     }))
   });
   
-  // Change chart
+  // Change chart (line)
   const changeChart = echarts.init(document.getElementById('chart-price-change'));
   changeChart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: products.map(p => p.name), bottom: 0 },
     grid: { left: 70, right: 20, top: 20, bottom: 50 },
     xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [] },
-    yAxis: { type: 'value', name: '涨跌' },
+    yAxis: { type: 'value' },
     series: products.map((p, i) => ({
-      name: p.name, type: 'bar', data: p.changes,
+      name: p.name, type: 'line', data: p.changes,
+      smooth: true, symbol: 'circle', symbolSize: 4,
       itemStyle: { color: colors[i % colors.length] }
     }))
   });
@@ -603,15 +608,21 @@ async function loadPastWeekly() {
   let html = '<table><thead><tr><th>期数</th><th>文件名</th><th>操作</th></tr></thead><tbody>';
   reports.forEach(r => {
     html += '<tr><td>' + r.period + '</td><td>' + r.filename + '</td>' +
-      '<td><button class="btn btn-sm btn-outline" onclick="viewWeekly(\'' + r.period + '\',\'' + encodeURIComponent(r.filename) + '\')">查看</button></td></tr>';
+      '<td><button class="btn btn-sm btn-outline" onclick="viewWeekly(\'' + r.period + '\',\'' + r.filename.replace(/'/g, "\\'") + '\')">查看</button></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('past-weekly-list').innerHTML = html;
 }
 
 async function viewWeekly(period, filename) {
-  const url = API + '/weekly-reports/' + period + '?filename=' + filename;
+  const url = API + '/weekly-reports/' + period + '?filename=' + encodeURIComponent(filename);
   const data = await fetch(url).then(r => r.json());
+  if (data.error) {
+    document.getElementById('past-weekly-list').innerHTML = 
+      '<div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" onclick="loadPastWeekly()">← 返回列表</button></div>' +
+      '<div class="empty">加载失败: ' + data.error + '</div>';
+    return;
+  }
   document.getElementById('past-weekly-list').innerHTML = 
     '<div style="margin-bottom:12px"><button class="btn btn-sm btn-outline" onclick="loadPastWeekly()">← 返回列表</button></div>' +
     '<div class="report-preview" style="max-width:900px">' + (data.content || '暂无内容') + '</div>';

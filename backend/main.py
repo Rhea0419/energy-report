@@ -232,6 +232,8 @@ def get_weekly_reports():
 
 @app.get("/api/weekly-reports/{period}")
 def read_weekly_report(period: str, filename: str = ""):
+    from urllib.parse import unquote
+    filename = unquote(filename)
     reports = list_weekly_reports()
     target = None
     for r in reports:
