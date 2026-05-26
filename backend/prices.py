@@ -3,33 +3,29 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
-DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "..", "..", "Documents", "Kapathy", "commodities", "data", "prices.db"
-)
-
-# On cloud, use relative path
+# Local: use the actual path. Cloud: use ./data/prices.db
 if os.getenv("HF_SPACE") or os.getenv("RENDER"):
     DB_PATH = "./data/prices.db"
+else:
+    DB_PATH = "/Users/rhea/Documents/Kapathy/commodities/data/prices.db"
 
 
 def get_price_data(product: str = "", days: int = 30):
-    """Get price time series for charts."""
+    """Get price time series for charts.
+    Table columns: 0=id, 1=date, 2=name, 3=code, 4=category, 5=unit, 6=low, 7=high, 8=avg, 9=change
+    """
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     
     date_from = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
     if product:
         rows = conn.execute(
-            "SELECT date, name, low, high, avg, change_val, unit FROM prices "
-            "WHERE name = ? AND date >= ? ORDER BY date",
+            "SELECT * FROM prices WHERE \"2\" = ? AND \"1\" >= ? ORDER BY \"1\"",
             (product, date_from)
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT date, name, low, high, avg, change_val, unit FROM prices "
-            "WHERE date >= ? ORDER BY date, name",
+            "SELECT * FROM prices WHERE \"1\" >= ? ORDER BY \"1\", \"2\"",
             (date_from,)
         ).fetchall()
     
@@ -38,14 +34,14 @@ def get_price_data(product: str = "", days: int = 30):
     products = ["1#银", "SMM 1#电解铜", "SMM A00铝", "N型致密料", "SMM电池级碳酸锂指数"]
     result = {}
     for r in rows:
-        name = r["name"]
+        name = r[2]  # column 2 = product name
         if name not in result:
-            result[name] = {"name": name, "unit": r["unit"], "dates": [], "avgs": [], "highs": [], "lows": [], "changes": []}
-        result[name]["dates"].append(r["date"])
-        result[name]["avgs"].append(r["avg"])
-        result[name]["highs"].append(r["high"])
-        result[name]["lows"].append(r["low"])
-        result[name]["changes"].append(r["change_val"])
+            result[name] = {"name": name, "unit": r[5], "dates": [], "avgs": [], "highs": [], "lows": [], "changes": []}
+        result[name]["dates"].append(r[1])
+        result[name]["avgs"].append(r[8])
+        result[name]["highs"].append(r[7])
+        result[name]["lows"].append(r[6])
+        result[name]["changes"].append(r[9])
     
     return {
         "products": [result[p] for p in products if p in result],
@@ -56,19 +52,18 @@ def get_price_data(product: str = "", days: int = 30):
 def get_latest_prices():
     """Get latest price snapshot."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     
     rows = conn.execute("""
-        SELECT name, unit, avg, change_val, date FROM prices 
-        WHERE (name, date) IN (
-            SELECT name, MAX(date) FROM prices GROUP BY name
+        SELECT * FROM prices 
+        WHERE (\"2\", \"1\") IN (
+            SELECT \"2\", MAX(\"1\") FROM prices GROUP BY \"2\"
         )
     """).fetchall()
     
     conn.close()
     
     return [
-        {"name": r["name"], "unit": r["unit"], "price": r["avg"], 
-         "change": r["change_val"], "date": r["date"]}
+        {"name": r[2], "unit": r[5], "price": r[8], 
+         "change": r[9], "date": r[1]}
         for r in rows
     ]
