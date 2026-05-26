@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>采研月报系统</title>
+<title>智擎商研</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -84,18 +84,27 @@ tr:hover{background:#f5f7fa}
 <body>
 <div class="app">
 <nav class="sidebar">
-  <div class="sidebar-logo">📊 采研月报系统</div>
-  <a class="active" onclick="showPage('dashboard')"><span class="icon">📊</span> <span>数据看板</span></a>
+  <div class="sidebar-logo">⚙️ 智擎商研</div>
+  <a class="active" onclick="showPage('price')"><span class="icon">📈</span> <span>原材料价格追踪</span></a>
+  <a onclick="showPage('knowledge')"><span class="icon">📚</span> <span>行业信息库</span></a>
+  <a onclick="showPage('weekly-report')"><span class="icon">📋</span> <span>采研周报</span></a>
+  <a onclick="showPage('past-weekly')"><span class="icon">🗂️</span> <span>往期周报</span></a>
+  <a onclick="showPage('monthly-report')"><span class="icon">📝</span> <span>采研月报</span></a>
+  <a onclick="showPage('past-monthly')"><span class="icon">📦</span> <span>往期月报</span></a>
+  <a onclick="showPage('dashboard')"><span class="icon">📊</span> <span>数据看板</span></a>
   <a onclick="showPage('articles')"><span class="icon">📄</span> <span>文章列表</span></a>
-  <a onclick="showPage('knowledge')"><span class="icon">🧠</span> <span>知识库</span></a>
-  <a onclick="showPage('reports')"><span class="icon">📝</span> <span>月报生成</span></a>
-  <a onclick="showPage('past-reports')"><span class="icon">📚</span> <span>往期月报</span></a>
-  <a onclick="showPage('settings')"><span class="icon">⚙️</span> <span>设置</span></a>
 </nav>
 
 <main class="main">
+  <!-- Price Tracking -->
+  <div id="page-price" class="page active">
+    <div class="table-box" style="padding:0;overflow:hidden">
+      <iframe src="http://localhost:8504" style="width:100%;height:85vh;border:none"></iframe>
+    </div>
+  </div>
+
   <!-- Dashboard -->
-  <div id="page-dashboard" class="page active">
+  <div id="page-dashboard" class="page">
     <div class="cards" id="stat-cards">
       <div class="card stat-primary"><div class="label">公众号总数</div><div class="value" id="stat-accounts">-</div><div class="sub">全部已配置</div></div>
       <div class="card stat-success"><div class="label">文章总数</div><div class="value" id="stat-articles">-</div><div class="sub" id="stat-last-collect">最后采集: -</div></div>
@@ -130,11 +139,11 @@ tr:hover{background:#f5f7fa}
     </div>
   </div>
 
-  <!-- Knowledge Base -->
+  <!-- Knowledge Base (行业信息库) -->
   <div id="page-knowledge" class="page">
     <div class="table-box">
       <div class="table-header">
-        <h3>知识库</h3>
+        <h3>行业信息库</h3>
         <div class="toolbar">
           <select id="kb-month" onchange="loadKnowledgeBase()"><option value="">选择月份</option></select>
           <select id="kb-category" onchange="loadKnowledgeBase()">
@@ -151,11 +160,11 @@ tr:hover{background:#f5f7fa}
     </div>
   </div>
 
-  <!-- Reports -->
-  <div id="page-reports" class="page">
+  <!-- Reports → Monthly Report -->
+  <div id="page-monthly-report" class="page">
     <div class="table-box">
       <div class="table-header">
-        <h3>月报生成</h3>
+        <h3>采研月报</h3>
         <div class="toolbar">
           <select id="report-month"><option value="">当前月份</option></select>
           <select id="report-theme">
@@ -171,8 +180,8 @@ tr:hover{background:#f5f7fa}
     </div>
   </div>
 
-  <!-- Past Reports -->
-  <div id="page-past-reports" class="page">
+  <!-- Past Reports → Past Monthly -->
+  <div id="page-past-monthly" class="page">
     <div class="table-box">
       <div class="table-header"><h3>往期月报 <span style="font-weight:400;font-size:13px;color:var(--text-secondary)">供应链服务中心（采购研究中心）</span></h3></div>
       <div id="past-reports-list" style="padding:20px"><div class="loading">加载中...</div></div>
@@ -186,19 +195,36 @@ tr:hover{background:#f5f7fa}
     </div>
   </div>
 
-  <!-- Settings -->
-  <div id="page-settings" class="page">
-    <div class="card" style="max-width:600px">
-      <h3 style="margin-bottom:16px">公众号管理</h3>
-      <div id="accounts-config"></div>
-    </div>
-    <div class="card" style="max-width:600px;margin-top:16px">
-      <h3 style="margin-bottom:16px">采集设置</h3>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-success" onclick="collectAll()">📥 立即采集所有公众号</button>
-        <button class="btn btn-warning" onclick="runAnalysis()">🤖 AI 分析未处理文章</button>
+  <!-- Weekly Report -->
+  <div id="page-weekly-report" class="page">
+    <div class="table-box">
+      <div class="table-header">
+        <h3>采研周报</h3>
+        <div class="toolbar">
+          <select id="weekly-theme">
+            <option value="综合">综合</option><option value="储能">储能专题</option>
+            <option value="光伏">光伏专题</option><option value="风电">风电专题</option>
+            <option value="电力">电力专题</option>
+          </select>
+          <input type="date" id="weekly-start" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
+          <span style="font-size:13px;color:var(--text-secondary)">至</span>
+          <input type="date" id="weekly-end" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
+          <button id="btn-weekly-generate" onclick="generateWeekly()">📋 生成周报</button>
+        </div>
       </div>
-      <p style="font-size:13px;color:var(--text-secondary)">手动触发采集和分析。定时调度功能在部署后自动运行。</p>
+      <div id="weekly-content" style="padding:20px"><div class="empty"><div class="icon">📋</div>选择时间范围和主题，点击"生成周报"开始</div></div>
+    </div>
+    <div class="chart-row" id="weekly-charts" style="display:none">
+      <div class="chart-box"><div class="chart-title">价格走势</div><div class="chart-inner" id="chart-weekly-price" style="height:300px"></div></div>
+      <div class="chart-box"><div class="chart-title">分类分布</div><div class="chart-inner" id="chart-weekly-category" style="height:300px"></div></div>
+    </div>
+  </div>
+
+  <!-- Past Weekly -->
+  <div id="page-past-weekly" class="page">
+    <div class="table-box">
+      <div class="table-header"><h3>往期周报</h3></div>
+      <div id="past-weekly-list" style="padding:20px"><div class="loading">加载中...</div></div>
     </div>
   </div>
 </main>
@@ -224,9 +250,10 @@ function showPage(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'articles') loadArticles();
   if (name === 'knowledge') loadKnowledgeMonths();
-  if (name === 'reports') loadReportMonths();
-  if (name === 'past-reports') loadPastReports();
-  if (name === 'settings') loadSettings();
+  if (name === 'monthly-report') loadReportMonths();
+  if (name === 'past-monthly') loadPastReports();
+  if (name === 'weekly-report') initWeeklyReport();
+  if (name === 'past-weekly') loadPastWeekly();
 }
 
 // ── Toast ──
@@ -464,12 +491,38 @@ function formatPastMarkdown(md) {
     .replace(/\n/g, '<br>');
 }
 
-// ── Settings ──
-async function loadSettings() {
-  const status = await fetch(API + '/status').then(r => r.json());
-  document.getElementById('accounts-config').innerHTML = '<table><thead><tr><th>公众号</th><th>biz ID</th><th>文章数</th><th>最后采集</th><th>状态</th></tr></thead><tbody>' +
-    status.accounts.map(a => '<tr><td>' + a.name + '</td><td><code>' + a.biz + '</code></td><td>' + a.total_articles + '</td><td>' + (a.last_collected || '-') + '</td><td>' + (a.error ? '<span style="color:#f56c6c">' + a.error + '</span>' : '<span style="color:#67c23a">正常</span>') + '</td></tr>').join('') +
-    '</tbody></table>';
+// ── Weekly Report ──
+function initWeeklyReport() {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  document.getElementById('weekly-end').value = now.toISOString().slice(0, 10);
+  document.getElementById('weekly-start').value = weekAgo.toISOString().slice(0, 10);
+}
+
+async function generateWeekly() {
+  const theme = document.getElementById('weekly-theme').value;
+  const start = document.getElementById('weekly-start').value;
+  const end = document.getElementById('weekly-end').value;
+  const btn = document.getElementById('btn-weekly-generate');
+  btn.textContent = '生成中...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(API + '/reports/generate?month=&theme=' + theme, { method: 'POST' }).then(r => r.json());
+    document.getElementById('weekly-content').innerHTML = '<div class="report-preview">' + formatMarkdown(resp.content) + '</div>';
+    document.getElementById('weekly-charts').style.display = 'grid';
+    toast('周报生成成功', 'success');
+  } catch(e) {
+    document.getElementById('weekly-content').innerHTML = '<div class="empty">生成失败: ' + e.message + '</div>';
+    toast('生成失败', 'error');
+  }
+  btn.textContent = '📋 生成周报';
+  btn.disabled = false;
+}
+
+// ── Past Weekly ──
+async function loadPastWeekly() {
+  document.getElementById('past-weekly-list').innerHTML = '<div class="empty"><div class="icon">🗂️</div>往期周报将从 Obsidian 周报目录加载</div>';
 }
 
 // ── Actions ──
