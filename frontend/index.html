@@ -573,13 +573,15 @@ async function loadPriceChart() {
   trendChart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: products.map(p => p.name), bottom: 0 },
-    grid: { left: 70, right: 20, top: 20, bottom: 50 },
-    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [] },
-    yAxis: { type: 'value' },
+    grid: { left: 80, right: 24, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [], axisLabel: { rotate: 45 } },
+    yAxis: { type: 'value', splitNumber: 6 },
     series: products.map((p, i) => ({
       name: p.name, type: 'line', data: p.avgs,
-      smooth: true, symbol: 'circle', symbolSize: 4,
-      itemStyle: { color: colors[i % colors.length] }
+      smooth: true, symbol: 'circle', symbolSize: 6,
+      itemStyle: { color: colors[i % colors.length] },
+      label: { show: true, position: 'top', fontSize: 10,
+        formatter: function(v) { return v.value != null ? v.value.toLocaleString() : ''; } }
     }))
   });
   
@@ -588,13 +590,15 @@ async function loadPriceChart() {
   changeChart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: products.map(p => p.name), bottom: 0 },
-    grid: { left: 70, right: 20, top: 20, bottom: 50 },
-    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [] },
-    yAxis: { type: 'value' },
+    grid: { left: 80, right: 24, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [], axisLabel: { rotate: 45 } },
+    yAxis: { type: 'value', splitNumber: 6 },
     series: products.map((p, i) => ({
       name: p.name, type: 'line', data: p.changes,
-      smooth: true, symbol: 'circle', symbolSize: 4,
-      itemStyle: { color: colors[i % colors.length] }
+      smooth: true, symbol: 'circle', symbolSize: 6,
+      itemStyle: { color: colors[i % colors.length] },
+      label: { show: true, position: 'top', fontSize: 10,
+        formatter: function(v) { return v.value != null ? (v.value > 0 ? '+' : '') + v.value.toLocaleString() : ''; } }
     }))
   });
 }
