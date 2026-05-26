@@ -98,8 +98,26 @@ tr:hover{background:#f5f7fa}
 <main class="main">
   <!-- Price Tracking -->
   <div id="page-price" class="page active">
-    <div class="table-box" style="padding:0;overflow:hidden">
-      <iframe src="https://caiyan-thinktank.streamlit.app" style="width:100%;height:85vh;border:none"></iframe>
+    <div class="cards" id="price-cards"></div>
+    <div class="toolbar" style="margin-bottom:16px">
+      <select id="price-product" onchange="loadPriceChart()">
+        <option value="">全部品种</option>
+        <option value="1#银">1#银</option>
+        <option value="SMM 1#电解铜">SMM 1#电解铜</option>
+        <option value="SMM A00铝">SMM A00铝</option>
+        <option value="N型致密料">N型致密料</option>
+        <option value="SMM电池级碳酸锂指数">SMM电池级碳酸锂指数</option>
+      </select>
+      <select id="price-days" onchange="loadPriceChart()">
+        <option value="30">近30天</option>
+        <option value="60">近60天</option>
+        <option value="90">近90天</option>
+      </select>
+      <button onclick="loadPriceChart()">刷新</button>
+    </div>
+    <div class="chart-row">
+      <div class="chart-box"><div class="chart-title">价格走势</div><div class="chart-inner" id="chart-price-trend" style="height:400px"></div></div>
+      <div class="chart-box"><div class="chart-title">涨跌幅</div><div class="chart-inner" id="chart-price-change" style="height:400px"></div></div>
     </div>
   </div>
 
@@ -250,6 +268,7 @@ function showPage(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'articles') loadArticles();
   if (name === 'knowledge') loadKnowledgeMonths();
+  if (name === 'price') { loadPriceCards(); loadPriceChart(); }
   if (name === 'monthly-report') loadReportMonths();
   if (name === 'past-monthly') loadPastReports();
   if (name === 'weekly-report') initWeeklyReport();
@@ -520,7 +539,60 @@ async function generateWeekly() {
   btn.disabled = false;
 }
 
-// ── Past Weekly ──
+// ── Price Tracking ──
+async function loadPriceCards() {
+  const data = await fetch(API + '/prices/latest').then(r => r.json());
+  const prices = data.prices || [];
+  let html = '';
+  prices.forEach(p => {
+    const changeClass = p.change > 0 ? 'stat-success' : p.change < 0 ? 'stat-warning' : '';
+    const arrow = p.change > 0 ? '↑' : p.change < 0 ? '↓' : '→';
+    html += '<div class="card ' + changeClass + '"><div class="label">' + p.name + '</div>' +
+      '<div class="value">' + (p.price || '-') + '</div>' +
+      '<div class="sub">' + p.unit + ' | ' + arrow + ' ' + (p.change || 0) + ' | ' + (p.date || '') + '</div></div>';
+  });
+  document.getElementById('price-cards').innerHTML = html;
+}
+
+async function loadPriceChart() {
+  const product = document.getElementById('price-product').value;
+  const days = document.getElementById('price-days').value;
+  let url = API + '/prices?days=' + days;
+  if (product) url += '&product=' + encodeURIComponent(product);
+  
+  const data = await fetch(url).then(r => r.json());
+  const products = data.products || [];
+  
+  // Price trend chart
+  const trendChart = echarts.init(document.getElementById('chart-price-trend'));
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399'];
+  trendChart.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: products.map(p => p.name), bottom: 0 },
+    grid: { left: 70, right: 20, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [] },
+    yAxis: { type: 'value' },
+    series: products.map((p, i) => ({
+      name: p.name, type: 'line', data: p.avgs,
+      smooth: true, symbol: 'circle', symbolSize: 4,
+      itemStyle: { color: colors[i % colors.length] }
+    }))
+  });
+  
+  // Change chart
+  const changeChart = echarts.init(document.getElementById('chart-price-change'));
+  changeChart.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: products.map(p => p.name), bottom: 0 },
+    grid: { left: 70, right: 20, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: products.length > 0 ? products[0].dates : [] },
+    yAxis: { type: 'value', name: '涨跌' },
+    series: products.map((p, i) => ({
+      name: p.name, type: 'bar', data: p.changes,
+      itemStyle: { color: colors[i % colors.length] }
+    }))
+  });
+}
 async function loadPastWeekly() {
   const data = await fetch(API + '/weekly-reports').then(r => r.json());
   const reports = data.reports || [];
@@ -562,6 +634,8 @@ async function runAnalysis() {
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
+  loadPriceCards();
+  loadPriceChart();
   loadDashboard();
   loadKnowledgeMonths();
   loadReportMonths();

@@ -10,6 +10,7 @@ from storage import list_articles, count_articles, get_recent_months, save_knowl
 from reporter import generate_and_save, list_reports, get_report, get_available_months
 from scheduler import get_scheduler_status
 from weekly import list_weekly_reports, extract_weekly_report
+from prices import get_price_data, get_latest_prices
 
 
 @asynccontextmanager
@@ -41,7 +42,7 @@ def get_status():
 @app.post("/api/collect")
 def trigger_collection(
     account: str = "",
-    pages: int = Query(default=1, ge=1, le=5),
+    pages: int = Query(default=1, ge=1, le=2),
 ):
     collector = get_collector()
     if account:
@@ -244,6 +245,16 @@ def read_weekly_report(period: str, filename: str = ""):
     
     content = extract_weekly_report(target["path"])
     return {"period": period, "filename": target["filename"], "content": content}
+
+# ── 价格 API ──────────────────────────────────────
+
+@app.get("/api/prices")
+def get_prices(product: str = "", days: int = 30):
+    return get_price_data(product=product, days=days)
+
+@app.get("/api/prices/latest")
+def get_latest():
+    return {"prices": get_latest_prices()}
 
 
 # ── 前端页面 ──────────────────────────────────────
