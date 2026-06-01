@@ -57,13 +57,15 @@ def get_price_data(product: str = "", days: int = 180, date_from: str = "", date
 
 
 def get_latest_prices():
-    """Get latest price per product."""
+    """Get latest non-null price per product."""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute("""
-        SELECT product_name, unit, avg, change_val, date FROM prices
-        WHERE (product_name, date) IN (
-            SELECT product_name, MAX(date) FROM prices GROUP BY product_name
-        )
+        SELECT p.product_name, p.unit, p.avg, p.change_val, p.date FROM prices p
+        INNER JOIN (
+            SELECT product_name, MAX(date) as max_date FROM prices
+            WHERE avg IS NOT NULL
+            GROUP BY product_name
+        ) latest ON p.product_name = latest.product_name AND p.date = latest.max_date
     """).fetchall()
     conn.close()
 
