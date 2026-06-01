@@ -85,14 +85,12 @@ tr:hover{background:#f5f7fa}
 <div class="app">
 <nav class="sidebar">
   <div class="sidebar-logo">⚙️ 智擎商研</div>
-  <a class="active" onclick="showPage('price')"><span class="icon">📈</span> <span>原材料价格追踪</span></a>
-  <a onclick="showPage('knowledge')"><span class="icon">📚</span> <span>行业信息库</span></a>
-  <a onclick="showPage('weekly-report')"><span class="icon">📋</span> <span>采研周报</span></a>
+  <a class="active" onclick="showPage('price')"><span class="icon">📈</span> <span>周报数据追踪</span></a>
+  <a onclick="showPage('monthly-report')"><span class="icon">📝</span> <span>月报信息洞察</span></a>
   <a onclick="showPage('past-weekly')"><span class="icon">🗂️</span> <span>往期周报</span></a>
-  <a onclick="showPage('monthly-report')"><span class="icon">📝</span> <span>采研月报</span></a>
   <a onclick="showPage('past-monthly')"><span class="icon">📦</span> <span>往期月报</span></a>
-  <a onclick="showPage('dashboard')"><span class="icon">📊</span> <span>数据看板</span></a>
   <a onclick="showPage('articles')"><span class="icon">📄</span> <span>文章列表</span></a>
+  <a onclick="showPage('dashboard')"><span class="icon">📊</span> <span>数据看板</span></a>
 </nav>
 
 <main class="main">
@@ -107,19 +105,21 @@ tr:hover{background:#f5f7fa}
         <option value="SMM A00铝">SMM A00铝</option>
         <option value="N型致密料">N型致密料</option>
         <option value="SMM电池级碳酸锂指数">SMM电池级碳酸锂指数</option>
+        <option value="PCS">集中式PCS（1725kW + 2500kW）</option>
+        <option value="LFP">方形磷酸铁锂电池（314Ah + 280Ah）</option>
       </select>
       <select id="price-days" onchange="loadPriceChart()">
         <option value="30">近30天</option>
         <option value="60">近60天</option>
         <option value="90">近90天</option>
-        <option value="180">近半年</option>
+        <option value="180" selected>近半年</option>
       </select>
-      <input type="date" id="price-start" onchange="loadPriceChart()" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
+      <input type="date" id="price-start" onchange="loadPriceChart()" value="2026-01-01" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
       <span style="font-size:13px;color:var(--text-secondary)">至</span>
       <input type="date" id="price-end" onchange="loadPriceChart()" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:4px">
       <button onclick="loadPriceChart()">刷新</button>
     </div>
-    <div id="price-charts-container" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div id="price-charts-container" style="display:flex;flex-direction:column;gap:16px">
     </div>
   </div>
 
@@ -268,10 +268,10 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   event.target.closest('a').classList.add('active');
   if (name === 'dashboard') loadDashboard();
-  if (name === 'articles') loadArticles();
-  if (name === 'knowledge') loadKnowledgeMonths();
+  if (name === 'articles') { loadKnowledgeMonths(); setTimeout(() => loadArticles(), 100); }
+  if (name === 'knowledge') { loadKnowledgeMonths(); setTimeout(() => { document.getElementById('kb-month').value = new Date().toISOString().slice(0,7); loadKnowledgeBase(); }, 100); }
   if (name === 'price') { loadPriceCards(); loadPriceChart(); }
-  if (name === 'monthly-report') loadReportMonths();
+  if (name === 'monthly-report') { loadReportMonths(); setTimeout(() => generateReport(), 200); }
   if (name === 'past-monthly') loadPastReports();
   if (name === 'weekly-report') initWeeklyReport();
   if (name === 'past-weekly') loadPastWeekly();
@@ -366,7 +366,7 @@ async function loadArticles(page = 1) {
         '<td>' + (a.ai_tags || []).map(t => '<span class="tag tag-category">' + t + '</span>').join('') +
         (a.ai_summary ? '<br><small style="color:#909399">' + a.ai_summary + '</small>' : '') +
         '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="analyzeOne(\'' + a.appmsgid + '\')">分析</button></td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="toggleArticleDetail(' + a.appmsgid + ', this)">详情</button></td>' +
         '</tr>').join('') +
       '</tbody></table>';
 
@@ -404,7 +404,17 @@ async function loadKnowledgeBase() {
   if (category) url += '&category=' + category;
 
   const data = await fetch(url).then(r => r.json());
-  let html = '<div style="margin-bottom:16px"><strong>共 ' + data.article_count + ' 篇文章</strong> | 分类: ' + (data.categories || []).map(c => '<span class="tag tag-category">' + c + '</span>').join(' ') + '</div>';
+  let html = '<div style="margin-bottom:16px"><strong>共 ' + data.article_count + ' 篇文章</strong>（已分析 ' + (data.analyzed_count || 0) + ' 篇） | 分类: ' + (data.categories || []).map(c => '<span class="tag tag-category">' + c + '</span>').join(' ') + '</div>';
+  
+  // Supplier tracking
+  if (data.suppliers && data.suppliers.length > 0) {
+    html += '<h3 style="margin-top:16px">🏭 供应商动态追踪</h3>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
+    data.suppliers.slice(0, 30).forEach(s => {
+      html += '<div style="padding:8px 12px;background:#f0f5ff;border-radius:6px;cursor:pointer;font-size:13px" title="出现 ' + s.count + ' 次" onclick="showSupplierArticles(\'' + s.name.replace(/'/g, "\\'") + '\',\'' + encodeURIComponent(JSON.stringify(s.articles)) + '\')">' + s.name + ' <span style="color:#409eff;font-weight:600">' + s.count + '</span></div>';
+    });
+    html += '</div>';
+  }
 
   if (data.policies && data.policies.length > 0) {
     html += '<h3 style="margin-top:16px">📋 政策法规</h3><ul>';
@@ -435,21 +445,105 @@ async function loadReportMonths() {
 
 async function generateReport() {
   const month = document.getElementById('report-month').value;
-  const theme = document.getElementById('report-theme').value;
   const btn = document.getElementById('btn-generate');
-  btn.textContent = '生成中...';
+  btn.textContent = '加载中...';
   btn.disabled = true;
 
   try {
-    const resp = await fetch(API + '/reports/generate?month=' + month + '&theme=' + theme, { method: 'POST' }).then(r => r.json());
-    document.getElementById('report-content').innerHTML = '<div class="report-preview">' + formatMarkdown(resp.content) + '</div>';
+    const resp = await fetch(API + '/reports/structured?month=' + month).then(r => r.json());
+    if (resp.error) { throw new Error(resp.error); }
+    
+    let html = '<h1 style="margin-bottom:24px">月报信息洞察 — ' + resp.month + '</h1>';
+    html += '<p style="color:var(--text-secondary);margin-bottom:16px">共 ' + resp.article_count + ' 篇相关文章</p>';
+    
+    // Search box
+    html += '<div style="margin-bottom:16px"><input type="text" id="insight-search" placeholder="🔍 搜索文章标题/摘要..." style="width:100%;padding:10px 14px;border:1px solid #dcdfe6;border-radius:6px;font-size:14px" oninput="filterInsightItems()"><div id="insight-search-results" style="margin-top:8px"></div></div>';
+    
+    // Section 1: Policies with hide button
+    html += '<h2 style="color:#e6a23c;border-bottom:2px solid #e6a23c;padding-bottom:8px;margin-top:24px">📋 一、政策动态 <span style="font-size:13px;color:#909399">（' + (resp.policies ? resp.policies.length : 0) + ' 条）</span></h2>';
+    if (resp.policies && resp.policies.length > 0) {
+      resp.policies.forEach((p, i) => {
+        html += '<div class="insight-item" id="policy-' + i + '" style="margin:12px 0;padding:12px;background:#fef7e0;border-radius:6px;border-left:3px solid #e6a23c;position:relative">';
+        html += '<button onclick="document.getElementById(\'policy-' + i + '\').style.display=\'none\'" style="position:absolute;top:8px;right:8px;background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:11px;color:#999;padding:2px 8px">隐藏</button>';
+        html += '<strong>' + (p.title || '未命名政策') + '</strong>';
+        if (p.source) html += ' · <span style="color:#909399">' + p.source + '</span>';
+        if (p.points) html += '<p style="margin:8px 0 4px;color:#555">' + p.points + '</p>';
+        html += '<p style="font-size:12px;color:#909399;margin:4px 0">来源：<a href="' + p.from_url + '" target="_blank" style="color:#409eff">' + p.from_article + '</a>（' + p.from_source + '）</p>';
+        html += '</div>';
+      });
+    } else {
+      html += '<p style="color:#909399">本月暂无政策动态</p>';
+    }
+    
+    // Section 2: Themes — structured analytical reports
+    html += '<h2 style="color:#409eff;border-bottom:2px solid #409eff;padding-bottom:8px;margin-top:32px">🏷️ 二、主题分类</h2>';
+    const themeOrder = ['风电', '光伏', '储能', '氢能', '火电', '招中标'];
+    themeOrder.forEach((t, idx) => {
+      const td = resp.themes && resp.themes[t];
+      if (td) {
+        html += '<div class="insight-item" style="margin:16px 0;padding:16px;background:#f0f5ff;border-radius:6px">';
+        html += '<h3 style="margin:0 0 8px;color:#409eff;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">'
+            + '⚡ ' + t + '（' + td.article_count + ' 篇相关）</h3>';
+        if (td.report) {
+          // Convert markdown report to HTML
+          const reportHtml = td.report
+            .replace(/##\s*(.+)/g, '<h4 style="margin:12px 0 6px;color:#1a56db;font-size:15px">$1</h4>')
+            .replace(/###\s*(.+)/g, '<h5 style="margin:8px 0 4px;color:#374151;font-size:14px">$1</h5>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+          html += '<div style="line-height:1.8;color:#303133;font-size:14px">' + reportHtml + '</div>';
+        } else {
+          html += '<p style="color:#909399">该主题暂无分析报告（可能需要先对文章进行 AI 分析）</p>';
+        }
+        html += '<p style="font-size:12px;color:#909399;margin-top:8px;border-top:1px solid #dce5f5;padding-top:8px">📎 重点文章：';
+        if (td.key_articles) td.key_articles.forEach((a, i) => {
+          html += (i > 0 ? '、' : '') + '<a href="' + a.url + '" target="_blank">' + a.title + '</a>';
+        });
+        html += '</p></div>';
+      }
+    });
+    
+    // Section 3: Tech highlights
+    html += '<h2 style="color:#67c23a;border-bottom:2px solid #67c23a;padding-bottom:8px;margin-top:32px">🔬 三、技术视野 <span style="font-size:13px;color:#909399">（' + (resp.tech_highlights ? resp.tech_highlights.length : 0) + ' 条）</span></h2>';
+    if (resp.tech_highlights && resp.tech_highlights.length > 0) {
+      resp.tech_highlights.forEach((th, i) => {
+        html += '<div class="insight-item" id="tech-' + i + '" style="margin:10px 0;padding:10px 14px;background:#f0f9eb;border-radius:6px;border-left:3px solid #67c23a;position:relative">';
+        html += '<button onclick="document.getElementById(\'tech-' + i + '\').style.display=\'none\'" style="position:absolute;top:8px;right:8px;background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:11px;color:#999;padding:2px 8px">隐藏</button>';
+        html += '<a href="' + th.url + '" target="_blank" style="color:#303133;font-weight:600">' + th.title + '</a>';
+        html += ' <span style="font-size:12px;color:#909399">— ' + th.source + '</span>';
+        html += '<p style="margin:4px 0 0;font-size:13px;color:#555">' + (th.snippet || '') + '</p>';
+        html += '<p style="margin:0;font-size:11px;color:#67c23a">关键词：' + (th.keywords || []).join('、') + '</p>';
+        html += '</div>';
+      });
+    } else {
+      html += '<p style="color:#909399">本月暂无技术亮点</p>';
+    }
+    
+    document.getElementById('report-content').innerHTML = html;
     toast('月报生成成功', 'success');
   } catch(e) {
     document.getElementById('report-content').innerHTML = '<div class="empty">生成失败: ' + e.message + '</div>';
     toast('生成失败', 'error');
   }
-  btn.textContent = '📝 生成月报';
+  btn.textContent = '📝 刷新月报';
   btn.disabled = false;
+}
+
+// Search filter for insight items
+function filterInsightItems() {
+  const q = document.getElementById('insight-search').value.toLowerCase();
+  const container = document.getElementById('insight-search-results');
+  if (!q || q.length < 2) { container.innerHTML = ''; return; }
+  
+  fetch(API + '/articles?keyword=' + encodeURIComponent(q) + '&limit=10').then(r => r.json()).then(data => {
+    if (!data.articles || data.articles.length === 0) {
+      container.innerHTML = '<p style="color:#909399;padding:8px">未找到相关文章</p>';
+      return;
+    }
+    container.innerHTML = '<div style="background:#fff;border:1px solid #dcdfe6;border-radius:6px;padding:12px"><h4 style="margin:0 0 8px">🔍 相关文章（' + data.total + ' 篇）</h4>' +
+      data.articles.map(a => '<div style="padding:8px 0;border-bottom:1px solid #f0f0f0"><a href="' + a.url + '" target="_blank" style="color:#409eff">' + a.title + '</a><span style="font-size:12px;color:#909399;margin-left:8px">— ' + a.source + '</span></div>').join('') +
+      '</div>';
+  });
 }
 
 function formatMarkdown(md) {
@@ -496,8 +590,15 @@ async function loadPastReports() {
 
 async function viewPastReport(filename) {
   const data = await fetch(API + '/past-reports/' + encodeURIComponent(filename)).then(r => r.json());
-  document.getElementById('past-report-title').textContent = data.title || filename;
-  document.getElementById('past-report-content').innerHTML = '<div class="report-preview">' + formatPastMarkdown(data.content || '') + '</div>';
+  const pdfName = filename.replace('.md', '.pdf');
+  const pdfUrl = '/api/past-reports/pdf/' + encodeURIComponent(pdfName);
+  document.getElementById('past-report-content').innerHTML = 
+    '<div style="text-align:center;padding:40px">' +
+    '<div style="font-size:48px;margin-bottom:16px">📄</div>' +
+    '<h3>' + (data.title || filename) + '</h3>' +
+    '<p style="color:var(--text-secondary);margin-bottom:24px">第' + (data.issue || '?') + '期 · ' + (data.year || '') + '</p>' +
+    '<a class="btn btn-success" href="' + pdfUrl + '" target="_blank" style="font-size:16px;padding:12px 32px">📥 下载原始 PDF（含图表）</a>' +
+    '</div>';
   document.getElementById('past-report-detail-box').hidden = false;
   document.getElementById('past-report-detail-box').scrollIntoView({behavior:'smooth'});
 }
@@ -525,11 +626,13 @@ async function generateWeekly() {
   const start = document.getElementById('weekly-start').value;
   const end = document.getElementById('weekly-end').value;
   const btn = document.getElementById('btn-weekly-generate');
+  if (!start || !end) { toast('请选择日期范围', 'warning'); return; }
   btn.textContent = '生成中...';
   btn.disabled = true;
 
   try {
-    const resp = await fetch(API + '/reports/generate?month=&theme=' + theme, { method: 'POST' }).then(r => r.json());
+    const resp = await fetch(API + '/reports/weekly?start=' + start + '&end=' + end + '&theme=' + theme, { method: 'POST' }).then(r => r.json());
+    if (resp.error) { throw new Error(resp.error); }
     document.getElementById('weekly-content').innerHTML = '<div class="report-preview">' + formatMarkdown(resp.content) + '</div>';
     document.getElementById('weekly-charts').style.display = 'grid';
     toast('周报生成成功', 'success');
@@ -559,52 +662,150 @@ async function loadPriceCards() {
 async function loadPriceChart() {
   const product = document.getElementById('price-product').value;
   const days = document.getElementById('price-days').value;
-  let url = API + '/prices?days=' + days;
-  if (product) url += '&product=' + encodeURIComponent(product);
+  const dateFrom = document.getElementById('price-start').value;
+  const dateTo = document.getElementById('price-end').value;
+
+  // Build URL - for groups fetch all, otherwise filter
+  let url = API + '/prices?';
+  if (dateFrom && dateTo) {
+    url += 'date_from=' + dateFrom + '&date_to=' + dateTo;
+  } else {
+    url += 'days=' + days;
+  }
+  // Only filter by single product (not group codes)
+  if (product && product !== 'PCS' && product !== 'LFP') {
+    url += '&product=' + encodeURIComponent(product);
+  }
   
   const data = await fetch(url).then(r => r.json());
   const products = data.products || [];
   
-  // Format dates: remove year prefix (YYYY-MM-DD → MM-DD)
+  // Product groups definition
+  const groups = {
+    'PCS': {
+      title: '集中式PCS',
+      members: ['集中式PCS (1725kW)', '集中式PCS (2500kW)'],
+      unit: '元/kW'
+    },
+    'LFP': {
+      title: '方形磷酸铁锂电池',
+      members: ['方形磷酸铁锂电池 (314Ah)', '方形磷酸铁锂电池 (280Ah)'],
+      unit: '元/Wh'
+    }
+  };
+  
   function shortDate(d) { return d ? d.slice(5) : d; }
   
   const container = document.getElementById('price-charts-container');
   container.innerHTML = '';
   
-  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399'];
+  const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#9b59b6', '#1abc9c'];
+  let chartIdx = 0;
+  let renderedMembers = new Set();
   
-  products.forEach((p, i) => {
-    const box = document.createElement('div');
-    box.className = 'chart-box';
-    box.innerHTML = '<div class="chart-title">' + p.name + '（' + (p.unit || '') + '）</div>' +
-      '<div class="chart-inner" id="chart-price-' + i + '" style="height:280px"></div>';
-    container.appendChild(box);
+  // Render grouped products first, then individual
+  products.forEach((p) => {
+    if (renderedMembers.has(p.name)) return;
     
-    // Delay init to let DOM render
-    setTimeout(() => {
-      const chart = echarts.init(document.getElementById('chart-price-' + i));
-      chart.setOption({
-        tooltip: { trigger: 'axis', formatter: function(params) {
-          let s = params[0].axisValue + '<br/>';
-          params.forEach(function(v) { s += v.marker + ' ' + v.seriesName + ': ' + v.value.toLocaleString() + '<br/>'; });
-          return s;
-        }},
-        grid: { left: 70, right: 20, top: 20, bottom: 30 },
-        xAxis: { type: 'category', data: p.dates.map(shortDate), axisLabel: { fontSize: 10, rotate: 30 } },
-        yAxis: { type: 'value', splitNumber: 5, axisLabel: { fontSize: 10 } },
-        series: [{
-          name: p.name, type: 'line', data: p.avgs,
-          smooth: true, symbol: 'circle', symbolSize: 6,
-          itemStyle: { color: colors[i % colors.length] },
-          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: colors[i % colors.length] + '33' },
-            { offset: 1, color: colors[i % colors.length] + '05' }
-          ])},
-          label: { show: true, position: 'top', fontSize: 9,
-            formatter: function(v) { return v.value != null ? v.value.toLocaleString() : ''; } }
-        }]
+    // Check which group this product belongs to
+    let groupKey = null;
+    for (const [key, g] of Object.entries(groups)) {
+      if (g.members.includes(p.name)) { groupKey = key; break; }
+    }
+    
+    if (groupKey) {
+      // For groups: only render when filter matches or showing all
+      if (product && product !== groupKey && product !== '') return;
+      
+      const g = groups[groupKey];
+      const seriesList = [];
+      let allDates = new Set();
+      
+      g.members.forEach(memberName => {
+        const mp = products.find(x => x.name === memberName);
+        if (mp) {
+          seriesList.push(mp);
+          renderedMembers.add(memberName);
+          mp.dates.forEach(d => allDates.add(d));
+        }
       });
-    }, 50);
+      
+      if (seriesList.length === 0) return;
+      
+      // Use union of all dates as x-axis
+      const xDates = [...allDates].sort();
+      
+      const box = document.createElement('div');
+      box.className = 'chart-box';
+      box.innerHTML = '<div class="chart-title">' + g.title + '（' + g.unit + '）</div>' +
+        '<div class="chart-inner" id="chart-price-' + chartIdx + '" style="height:350px"></div>';
+      container.appendChild(box);
+      
+      const cid = chartIdx++;
+      setTimeout(() => {
+        const chart = echarts.init(document.getElementById('chart-price-' + cid));
+        const series = seriesList.map((s, si) => {
+          // Map data to shared x-axis
+          const dateMap = {};
+          s.dates.forEach((d, i) => { dateMap[d] = s.avgs[i]; });
+          const mappedData = xDates.map(d => dateMap[d] !== undefined ? dateMap[d] : null);
+          return {
+            name: s.name, type: 'line', data: mappedData,
+            smooth: true, symbol: 'circle', symbolSize: 4,
+            itemStyle: { color: colors[si % colors.length] },
+            lineStyle: { width: 2 },
+          };
+        });
+        chart.setOption({
+          tooltip: { trigger: 'axis' },
+          legend: { data: seriesList.map(s => s.name), bottom: 0 },
+          grid: { left: 70, right: 30, top: 30, bottom: 40 },
+          xAxis: { type: 'category', data: xDates.map(shortDate), axisLabel: { fontSize: 10, rotate: 30 } },
+          yAxis: { type: 'value', scale: true, splitNumber: 8, axisLabel: { fontSize: 10 } },
+          series: series
+        });
+      }, 50);
+      
+    } else {
+      // Individual product - original behavior
+      if (product && product !== '') return;
+      
+      renderedMembers.add(p.name);
+      const box = document.createElement('div');
+      box.className = 'chart-box';
+      box.innerHTML = '<div class="chart-title">' + p.name + '（' + (p.unit || '') + '）</div>' +
+        '<div class="chart-inner" id="chart-price-' + chartIdx + '" style="height:280px"></div>';
+      container.appendChild(box);
+      
+      const cid = chartIdx++;
+      const ci = cid;
+      setTimeout(() => {
+        const chart = echarts.init(document.getElementById('chart-price-' + ci));
+        chart.setOption({
+          tooltip: { trigger: 'axis', formatter: function(params) {
+            let s = params[0].axisValue + '<br/>';
+            params.forEach(function(v) { s += v.marker + ' ' + v.seriesName + ': ' + v.value.toLocaleString() + '<br/>'; });
+            return s;
+          }},
+          grid: { left: 70, right: 30, top: 30, bottom: 30 },
+          xAxis: { type: 'category', data: p.dates.map(shortDate), axisLabel: { fontSize: 10, rotate: 30 } },
+          yAxis: { type: 'value', scale: true, splitNumber: 8, axisLabel: { fontSize: 10 } },
+          series: [{
+            name: p.name, type: 'line', data: p.avgs,
+            smooth: true, symbol: 'circle', symbolSize: 6,
+            itemStyle: { color: colors[ci % colors.length] },
+            areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: colors[ci % colors.length] + '33' },
+              { offset: 1, color: colors[ci % colors.length] + '05' }
+            ])},
+            label: { show: true, fontSize: 9,
+              formatter: function(v) { return v.value != null ? v.value.toLocaleString() : ''; },
+              position: function(v) { return v.dataIndex % 2 === 0 ? 'top' : 'bottom'; },
+              distance: 8 }
+          }]
+        });
+      }, 50);
+    }
   });
 }
 async function loadPastWeekly() {
@@ -617,14 +818,14 @@ async function loadPastWeekly() {
   let html = '<table><thead><tr><th>期数</th><th>文件名</th><th>操作</th></tr></thead><tbody>';
   reports.forEach(r => {
     html += '<tr><td>' + r.period + '</td><td>' + r.filename + '</td>' +
-      '<td><button class="btn btn-sm btn-outline" onclick="viewWeekly(\'' + r.period + '\',\'' + r.filename.replace(/'/g, "\\'") + '\')">查看</button></td></tr>';
+      '<td><a class="btn btn-sm btn-outline" href="/api/weekly-reports/download/' + encodeURIComponent(r.period) + '?filename=' + encodeURIComponent(r.filename) + '" download>📥 下载</a></td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('past-weekly-list').innerHTML = html;
 }
 
 async function viewWeekly(period, filename) {
-  const url = API + '/weekly-reports/' + period + '?filename=' + encodeURIComponent(filename);
+  const url = API + '/weekly-reports/' + encodeURIComponent(period) + '?filename=' + encodeURIComponent(filename);
   const data = await fetch(url).then(r => r.json());
   if (data.error) {
     document.getElementById('past-weekly-list').innerHTML = 
@@ -638,6 +839,38 @@ async function viewWeekly(period, filename) {
 }
 
 // ── Actions ──
+function toggleArticleDetail(appmsgid, btn) {
+  const row = btn.closest('tr');
+  let detailRow = row.nextElementSibling;
+  if (detailRow && detailRow.classList.contains('detail-row')) {
+    detailRow.remove();
+    btn.textContent = '详情';
+    return;
+  }
+  
+  // Fetch article detail
+  btn.textContent = '加载中...';
+  fetch(API + '/articles?limit=100').then(r => r.json()).then(data => {
+    const art = data.articles.find(a => a.appmsgid === appmsgid);
+    if (!art) { btn.textContent = '未找到'; return; }
+    
+    const detailTr = document.createElement('tr');
+    detailTr.className = 'detail-row';
+    detailTr.innerHTML = '<td colspan="5" style="background:#f9fafb;padding:16px">' +
+      '<div style="max-width:700px">' +
+      '<h4 style="margin:0 0 8px">' + art.title + '</h4>' +
+      (art.ai_summary ? '<p style="color:#303133;line-height:1.6"><strong>摘要：</strong>' + art.ai_summary + '</p>' : '<p style="color:#909399">尚未分析 <button class="btn btn-sm" style="margin-left:8px;background:var(--primary);color:#fff" onclick="analyzeOne(' + appmsgid + ', this)">🔍 分析此文</button></p>') +
+      (art.ai_tags && art.ai_tags.length ? '<p><strong>标签：</strong>' + art.ai_tags.map(t => '<span class="tag tag-category">' + t + '</span>').join(' ') + '</p>' : '') +
+      (art.ai_key_data && art.ai_key_data.length ? '<p><strong>关键数据：</strong>' + JSON.stringify(art.ai_key_data) + '</p>' : '') +
+      (art.ai_policy ? '<p><strong>政策要点：</strong>' + art.ai_policy + '</p>' : '') +
+      (art.ai_viewpoint ? '<p><strong>观点：</strong>' + art.ai_viewpoint + '</p>' : '') +
+      '<p style="margin-top:8px"><a href="' + art.url + '" target="_blank">查看原文 →</a></p>' +
+      '</div></td>';
+    row.after(detailTr);
+    btn.textContent = '收起';
+  }).catch(() => { btn.textContent = '详情'; });
+}
+
 async function collectAll() {
   toast('开始采集所有公众号文章...', 'info');
   const data = await fetch(API + '/collect', { method: 'POST' }).then(r => r.json());
@@ -652,13 +885,37 @@ async function runAnalysis() {
   loadKnowledgeBase();
 }
 
+async function analyzeOne(appmsgid, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ 分析中...';
+  const detailDiv = btn.closest('div');
+  try {
+    const resp = await fetch(API + '/analyze/' + appmsgid, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      // Replace the "尚未分析" section with the fresh analysis result
+      const parent = btn.closest('p');
+      parent.innerHTML = '<strong>摘要：</strong>' + (data.ai_summary || '(无)') +
+        (data.ai_tags && data.ai_tags.length ? '<br><strong>标签：</strong>' + data.ai_tags.map(t => '<span class="tag tag-category">' + t + '</span>').join(' ') : '') +
+        (data.ai_policy ? '<br><strong>政策要点：</strong>' + data.ai_policy : '') +
+        (data.ai_viewpoint ? '<br><strong>观点：</strong>' + data.ai_viewpoint : '');
+      toast('分析完成！', 'success');
+    } else {
+      btn.textContent = '🔍 重试';
+      btn.disabled = false;
+      toast('分析失败：' + (data.error || '未知错误'), 'error');
+    }
+  } catch(e) {
+    btn.textContent = '🔍 分析此文';
+    btn.disabled = false;
+    toast('请求超时，请重试', 'error');
+  }
+}
+
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
   loadPriceCards();
   loadPriceChart();
-  loadDashboard();
-  loadKnowledgeMonths();
-  loadReportMonths();
 });
 </script>
 </body>

@@ -4,30 +4,37 @@ import os
 from datetime import datetime, timedelta
 
 if os.getenv("HF_SPACE") or os.getenv("RENDER"):
-    DB_PATH = "../data/prices.db"
+    DB_PATH = "../seed-data/prices.db"
 else:
     DB_PATH = "/Users/rhea/Documents/Kapathy/commodities/data/prices.db"
 
 
-PRODUCTS = ["1#银", "SMM 1#电解铜", "SMM A00铝", "N型致密料", "SMM电池级碳酸锂指数"]
+PRODUCTS = ["1#银", "SMM 1#电解铜", "SMM A00铝", "N型致密料", "SMM电池级碳酸锂指数",
+            "集中式PCS (1725kW)", "集中式PCS (2500kW)",
+            "方形磷酸铁锂电池 (314Ah)", "方形磷酸铁锂电池 (280Ah)"]
 
 
-def get_price_data(product: str = "", days: int = 30):
+def get_price_data(product: str = "", days: int = 180, date_from: str = "", date_to: str = ""):
     """Get price time series for charts."""
     conn = sqlite3.connect(DB_PATH)
-    date_from = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    if date_from:
+        start = date_from
+    else:
+        start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    end = date_to or datetime.now().strftime("%Y-%m-%d")
 
     if product:
         rows = conn.execute(
             "SELECT date, product_name, low, high, avg, change_val, unit FROM prices "
-            "WHERE product_name = ? AND date >= ? ORDER BY date",
-            (product, date_from)
+            "WHERE product_name = ? AND date >= ? AND date <= ? ORDER BY date",
+            (product, start, end)
         ).fetchall()
     else:
         rows = conn.execute(
             "SELECT date, product_name, low, high, avg, change_val, unit FROM prices "
-            "WHERE date >= ? ORDER BY date, product_name",
-            (date_from,)
+            "WHERE date >= ? AND date <= ? ORDER BY date, product_name",
+            (start, end)
         ).fetchall()
     conn.close()
 
@@ -45,7 +52,7 @@ def get_price_data(product: str = "", days: int = 30):
 
     return {
         "products": [result[p] for p in PRODUCTS if p in result],
-        "date_range": {"from": date_from, "to": datetime.now().strftime("%Y-%m-%d")}
+        "date_range": {"from": start, "to": end}
     }
 
 
